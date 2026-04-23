@@ -1,6 +1,7 @@
 -- Supply Chain Management Database Schema
+-- Designed for CS50 SQL Final Project by Jorn van Schagen
 
--- Create Suppliers table
+-- Suppliers: companies that provide products to the supply chain
 CREATE TABLE suppliers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
@@ -8,7 +9,7 @@ CREATE TABLE suppliers (
     location TEXT
 );
 
--- Create Products table
+-- Products: items that flow through the supply chain
 CREATE TABLE products (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
@@ -16,7 +17,8 @@ CREATE TABLE products (
     category TEXT
 );
 
--- Create SupplierProducts table (junction table for many-to-many relationship between suppliers and products)
+-- SupplierProducts: junction table for the many-to-many relationship between suppliers and products.
+-- Price and lead_time are stored here because they vary per supplier-product combination.
 CREATE TABLE supplier_products (
     supplier_id INTEGER NOT NULL,
     product_id INTEGER NOT NULL,
@@ -27,13 +29,14 @@ CREATE TABLE supplier_products (
     FOREIGN KEY (product_id) REFERENCES products(id)
 );
 
--- Create Warehouses table
+-- Warehouses: physical storage locations for inventory
 CREATE TABLE warehouses (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     location TEXT NOT NULL
 );
 
--- Create Inventory table (tracks product quantities in each warehouse)
+-- Inventory: tracks product quantities in each warehouse.
+-- Uses a composite primary key to ensure one record per product per warehouse.
 CREATE TABLE inventory (
     warehouse_id INTEGER NOT NULL,
     product_id INTEGER NOT NULL,
@@ -43,14 +46,14 @@ CREATE TABLE inventory (
     FOREIGN KEY (product_id) REFERENCES products(id)
 );
 
--- Create Customers table
+-- Customers: people or businesses that place orders
 CREATE TABLE customers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     contact_email TEXT
 );
 
--- Create Orders table
+-- Orders: records of customer purchases, linked to the customer who placed them
 CREATE TABLE orders (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     customer_id INTEGER NOT NULL,
@@ -58,7 +61,8 @@ CREATE TABLE orders (
     FOREIGN KEY (customer_id) REFERENCES customers(id)
 );
 
--- Create OrderItems table (junction table for orders and products)
+-- OrderItems: junction table linking orders to products with quantities.
+-- Composite key prevents duplicate product entries within the same order.
 CREATE TABLE order_items (
     order_id INTEGER NOT NULL,
     product_id INTEGER NOT NULL,
@@ -68,7 +72,8 @@ CREATE TABLE order_items (
     FOREIGN KEY (product_id) REFERENCES products(id)
 );
 
--- Create Shipments table
+-- Shipments: tracks the delivery status of each order.
+-- Status defaults to 'pending' and progresses through 'shipped' and 'delivered'.
 CREATE TABLE shipments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     order_id INTEGER NOT NULL,
@@ -77,7 +82,7 @@ CREATE TABLE shipments (
     FOREIGN KEY (order_id) REFERENCES orders(id)
 );
 
--- Create indexes for better query performance on foreign keys
+-- Indexes on all foreign key columns to speed up JOIN operations
 CREATE INDEX idx_supplier_products_supplier_id ON supplier_products(supplier_id);
 CREATE INDEX idx_supplier_products_product_id ON supplier_products(product_id);
 CREATE INDEX idx_inventory_warehouse_id ON inventory(warehouse_id);
@@ -87,9 +92,7 @@ CREATE INDEX idx_order_items_order_id ON order_items(order_id);
 CREATE INDEX idx_order_items_product_id ON order_items(product_id);
 CREATE INDEX idx_shipments_order_id ON shipments(order_id);
 
--- Create views for common queries
-
--- View for products with low inventory (less than 10 units)
+-- View: flags products with fewer than 10 units in any warehouse (restocking alert)
 CREATE VIEW low_inventory AS
 SELECT p.name AS product_name, w.location AS warehouse_location, i.quantity
 FROM inventory i
@@ -97,9 +100,11 @@ JOIN products p ON i.product_id = p.id
 JOIN warehouses w ON i.warehouse_id = w.id
 WHERE i.quantity < 10;
 
--- View for order summaries including customer info and item counts
+-- View: aggregates order data for quick summaries (item count and total quantity per order)
 CREATE VIEW order_summaries AS
-SELECT o.id AS order_id, c.name AS customer_name, o.order_date, COUNT(oi.product_id) AS item_count, SUM(oi.quantity) AS total_quantity
+SELECT o.id AS order_id, c.name AS customer_name, o.order_date,
+       COUNT(oi.product_id) AS item_count,
+       SUM(oi.quantity) AS total_quantity
 FROM orders o
 JOIN customers c ON o.customer_id = c.id
 JOIN order_items oi ON o.id = oi.order_id
