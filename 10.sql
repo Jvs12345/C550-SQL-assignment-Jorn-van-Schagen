@@ -1,0 +1,1 @@
+SELECT english_title AS "Favorite Title", artist AS "Creator" FROM views WHERE brightness > (SELECT AVG(brightness) FROM views) ORDER BY entropy DESC;
